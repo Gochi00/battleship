@@ -1,0 +1,2227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Aegis Bastion: Tactical Fleet Interceptor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Teko:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      margin: 0;
+      padding: 0;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #01080e;
+      font-family: 'Share Tech Mono', monospace;
+      color: #7dd3fc;
+      touch-action: none;
+    }
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #01080e;
+    }
+    canvas#gameCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    /* HUD Top Elements */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      pointer-events: none;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+    }
+    .xp-bar-container {
+      width: 100%;
+      height: 16px;
+      background: rgba(3, 19, 32, 0.94);
+      border-bottom: 1px solid #0369a1;
+      position: relative;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+    }
+    .xp-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0284c7, #38bdf8, #bae6fd);
+      transition: width 0.15s ease-out;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.85);
+    }
+    .xp-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: #f0f9ff;
+      text-shadow: 0 0 4px #0284c7;
+      white-space: nowrap;
+    }
+
+    .top-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      font-family: 'Teko', sans-serif;
+      font-size: 24px;
+      letter-spacing: 1px;
+    }
+    .stat-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(5, 25, 42, 0.9);
+      padding: 2px 12px;
+      border-radius: 4px;
+      border: 1px solid #0ea5e9;
+      box-shadow: 0 0 10px rgba(14, 165, 233, 0.25);
+    }
+    .hp-bar-bg {
+      width: 130px;
+      height: 12px;
+      background: #111e28;
+      border: 1px solid #0284c7;
+      border-radius: 2px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .hp-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #ef4444, #22c55e);
+      transition: width 0.12s linear;
+    }
+
+    .active-systems {
+      display: flex;
+      gap: 6px;
+      padding: 0 16px;
+      flex-wrap: wrap;
+    }
+    .system-badge {
+      min-width: 40px;
+      height: 40px;
+      padding: 0 6px;
+      background: rgba(4, 28, 48, 0.94);
+      border: 1px solid #0284c7;
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      position: relative;
+      box-shadow: 0 0 8px rgba(2, 132, 199, 0.4);
+    }
+    .system-lvl {
+      position: absolute;
+      bottom: 0px;
+      right: 3px;
+      font-size: 9px;
+      color: #38bdf8;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .top-actions {
+      position: absolute;
+      top: 24px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+      z-index: 60;
+    }
+    .action-icon-btn {
+      background: rgba(5, 25, 42, 0.92);
+      border: 1px solid #0284c7;
+      color: #7dd3fc;
+      font-size: 16px;
+      width: 38px;
+      height: 38px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .action-icon-btn:active {
+      background: #0284c7;
+      color: #fff;
+    }
+
+    /* Decoy Button: High z-index, touch-action manipulation, explicit touch intercept */
+    #decoy-trigger-container {
+      position: absolute;
+      bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+      right: calc(24px + env(safe-area-inset-right, 0px));
+      z-index: 1000;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      touch-action: manipulation;
+    }
+    #decoy-btn {
+      width: 88px;
+      height: 88px;
+      min-width: 88px;
+      min-height: 88px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #0284c7 0%, #034269 75%, #011c2e 100%);
+      border: 3px solid #38bdf8;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.7), inset 0 0 12px rgba(255, 255, 255, 0.35);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-family: 'Teko', sans-serif;
+      letter-spacing: 1px;
+      position: relative;
+      overflow: hidden;
+      pointer-events: auto;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      outline: none;
+      transition: transform 0.08s ease, border-color 0.15s ease;
+    }
+    #decoy-btn:active {
+      transform: scale(0.92);
+    }
+    #decoy-btn.cooling-down {
+      border-color: #475569;
+      cursor: not-allowed;
+      box-shadow: 0 0 10px rgba(71, 85, 105, 0.4);
+    }
+    #decoy-cooldown-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: rgba(8, 15, 26, 0.85);
+      pointer-events: none;
+      transition: height 0.08s linear;
+    }
+    #decoy-btn-icon {
+      font-size: 30px;
+      line-height: 1;
+      z-index: 2;
+      pointer-events: none;
+    }
+    #decoy-btn-text {
+      line-height: 1;
+      z-index: 2;
+      font-size: 19px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+    #decoy-timer-label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #bae6fd;
+      font-family: 'Share Tech Mono', monospace;
+      text-shadow: 0 0 5px #0284c7;
+      pointer-events: none;
+    }
+
+    /* Floating Dynamic Joystick */
+    #floating-joystick {
+      position: absolute;
+      width: 126px;
+      height: 126px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(14, 165, 233, 0.16) 0%, rgba(3, 20, 36, 0.6) 80%);
+      border: 2px solid rgba(56, 189, 248, 0.65);
+      box-shadow: 0 0 20px rgba(14, 165, 233, 0.45), inset 0 0 10px rgba(2, 132, 199, 0.4);
+      pointer-events: none;
+      z-index: 40;
+      display: none;
+      transform: translate(-50%, -50%);
+    }
+    #floating-stick {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 48px;
+      height: 48px;
+      background: radial-gradient(circle, #38bdf8 0%, #0369a1 80%, #075985 100%);
+      border: 2px solid #bae6fd;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.85);
+      pointer-events: none;
+    }
+
+    /* Decoy Alert Banner (visible for 2 seconds) */
+    #decoy-banner {
+      position: absolute;
+      top: 14%;
+      width: 100%;
+      text-align: center;
+      font-family: 'Teko', sans-serif;
+      font-size: 34px;
+      letter-spacing: 2.5px;
+      color: #fef08a;
+      text-shadow: 0 0 16px rgba(250, 204, 21, 0.95), 2px 2px 0 #000;
+      display: none;
+      pointer-events: none;
+      z-index: 45;
+      animation: decoyGlow 0.4s infinite alternate;
+      padding: 0 12px;
+    }
+    @keyframes decoyGlow {
+      0% { transform: scale(0.98); opacity: 0.85; }
+      100% { transform: scale(1.02); opacity: 1; }
+    }
+
+    #warning-banner {
+      position: absolute;
+      top: 20%;
+      width: 100%;
+      text-align: center;
+      font-family: 'Teko', sans-serif;
+      font-size: 32px;
+      color: #ef4444;
+      text-shadow: 0 0 15px rgba(239, 68, 68, 0.8), 2px 2px 0 #000;
+      letter-spacing: 3px;
+      display: none;
+      pointer-events: none;
+      z-index: 45;
+      padding: 0 12px;
+      animation: alertPulse 0.5s infinite alternate;
+    }
+    @keyframes alertPulse {
+      0% { opacity: 0.3; transform: scale(0.96); }
+      100% { opacity: 1; transform: scale(1.02); }
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(1, 10, 18, 0.9);
+      backdrop-filter: blur(6px);
+      z-index: 2000;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .modal-box {
+      background: radial-gradient(circle, #082a44 0%, #031422 100%);
+      border: 2px solid #0284c7;
+      box-shadow: 0 0 35px rgba(2, 132, 199, 0.55);
+      border-radius: 8px;
+      padding: 22px 24px;
+      max-width: 560px;
+      width: 100%;
+      text-align: center;
+      animation: popIn 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    @keyframes popIn {
+      0% { transform: scale(0.9); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .modal-title {
+      font-family: 'Teko', sans-serif;
+      font-size: 36px;
+      letter-spacing: 2px;
+      color: #38bdf8;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+      margin-bottom: 2px;
+      line-height: 1;
+    }
+    .modal-subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    .upgrade-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .upgrade-card {
+      background: rgba(8, 38, 62, 0.85);
+      border: 1px solid #0369a1;
+      border-radius: 6px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      text-align: left;
+      touch-action: manipulation;
+    }
+    .upgrade-card:active {
+      background: rgba(14, 116, 144, 0.95);
+      border-color: #38bdf8;
+      transform: scale(0.98);
+    }
+    .card-icon {
+      font-size: 32px;
+      min-width: 44px;
+      text-align: center;
+    }
+    .card-info h4 {
+      font-size: 17px;
+      color: #e0f2fe;
+      margin-bottom: 2px;
+    }
+    .card-info p {
+      font-size: 12px;
+      color: #93c5fd;
+      line-height: 1.25;
+    }
+    .tactical-btn {
+      font-family: 'Teko', sans-serif;
+      background: linear-gradient(180deg, #0284c7, #0369a1);
+      border: 1px solid #7dd3fc;
+      color: #fff;
+      padding: 8px 30px;
+      font-size: 24px;
+      letter-spacing: 1.5px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 16px;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+      touch-action: manipulation;
+    }
+    .tactical-btn:active {
+      background: #0ea5e9;
+      transform: scale(0.96);
+    }
+  </style>
+</head>
+<body>
+<div id="game-container">
+  <canvas id="gameCanvas"></canvas>
+
+  <div id="hud">
+    <div class="xp-bar-container">
+      <div id="xp-fill" class="xp-bar-fill"></div>
+      <div id="xp-label" class="xp-text">COMMAND RANK 1 - SALVAGE: 0/15</div>
+    </div>
+    <div class="top-stats">
+      <div class="stat-badge">
+        <span>HULL</span>
+        <div class="hp-bar-bg">
+          <div id="hp-fill" class="hp-bar-fill"></div>
+        </div>
+        <span id="hp-text">200/200</span>
+      </div>
+      <div class="stat-badge">
+        <span>TIME</span>
+        <span id="timer-text">00:00</span>
+      </div>
+      <div class="stat-badge">
+        <span>KILLS</span>
+        <span id="kill-text">0</span>
+      </div>
+    </div>
+    <div id="active-systems" class="active-systems"></div>
+  </div>
+
+  <div class="top-actions">
+    <button id="sound-btn" class="action-icon-btn" title="Toggle Sound">🔊</button>
+    <button id="pause-btn" class="action-icon-btn" title="Pause Game">⏸</button>
+  </div>
+
+  <!-- Manual On-Screen Decoy Button with Mobile-Optimized Touch Handling -->
+  <div id="decoy-trigger-container">
+    <button id="decoy-btn" title="Launch Decoy / Chaff (5s Cooldown)">
+      <div id="decoy-cooldown-overlay"></div>
+      <span id="decoy-btn-icon">✨</span>
+      <span id="decoy-btn-text">DECOY</span>
+    </button>
+    <span id="decoy-timer-label">READY</span>
+  </div>
+
+  <!-- Decoy 2-Second Notification Banner -->
+  <div id="decoy-banner">✨ DECOYS DISPENSED - 50% MISSILE INSTANT KILL RATE ✨</div>
+  <!-- Alert Banner -->
+  <div id="warning-banner">⚠️ NEW HOSTILE CONTACT ACQUIRED ⚠️</div>
+
+  <!-- Dynamic Floating Joystick -->
+  <div id="floating-joystick">
+    <div id="floating-stick"></div>
+  </div>
+
+  <!-- Level Up Modal (Strict Upgrades: Fire Rate + FFDC only) -->
+  <div id="levelup-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h2 class="modal-title">TACTICAL MODERNIZATION</h2>
+      <p class="modal-subtitle">SELECT FIRE RATE OVERCLOCK OR DAMAGE CONTROL REINFORCEMENT</p>
+      <div id="upgrade-options" class="upgrade-list"></div>
+    </div>
+  </div>
+
+  <!-- Pause Modal -->
+  <div id="pause-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h2 class="modal-title">ENGAGEMENT PAUSED</h2>
+      <p class="modal-subtitle">TACTICAL DISPLAY AND COMBAT SYSTEMS FROZEN</p>
+      <button id="resume-btn" class="tactical-btn">RESUME ENGAGEMENT</button>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div id="gameover-modal" class="modal-overlay">
+    <div class="modal-box">
+      <h2 class="modal-title" style="color: #ef4444; text-shadow: 0 0 15px rgba(239, 68, 68, 0.7);">VESSEL COMPROMISED</h2>
+      <p class="modal-subtitle" id="gameover-stats">TIME: 00:00 | DESTROYED: 0 | RANK: 1</p>
+      <button id="restart-btn" class="tactical-btn">DEPLOY RELIEF WARSHIP</button>
+    </div>
+  </div>
+</div>
+
+<script>
+class NavalSoundSynthesizer {
+  constructor() {
+    this.ctx = null;
+    this.enabled = true;
+  }
+  init() {
+    if (!this.ctx) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioContext();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+  toggle() {
+    this.enabled = !this.enabled;
+    return this.enabled;
+  }
+  playCiws() {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(320, t);
+    osc.frequency.exponentialRampToValueAtTime(60, t + 0.05);
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.linearRampToValueAtTime(0.01, t + 0.05);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.06);
+  }
+  playAALaunch() {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(280, t);
+    osc.frequency.linearRampToValueAtTime(750, t + 0.18);
+    gain.gain.setValueAtTime(0.16, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.22);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.24);
+  }
+  playASuWLaunch() {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(110, t);
+    osc.frequency.linearRampToValueAtTime(420, t + 0.35);
+    gain.gain.setValueAtTime(0.25, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.38);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.4);
+  }
+  playDecoyChaff() {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const bufferSize = this.ctx.sampleRate * 0.28;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1500, t);
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.25, t);
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    noise.start(t);
+  }
+  playExplosion(isLarge = false) {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const dur = isLarge ? 0.42 : 0.18;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(isLarge ? 70 : 130, t);
+    osc.frequency.exponentialRampToValueAtTime(20, t + dur);
+    gain.gain.setValueAtTime(isLarge ? 0.32 : 0.14, t);
+    gain.gain.linearRampToValueAtTime(0.01, t + dur);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+  playSalvage() {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(540, t);
+    osc.frequency.exponentialRampToValueAtTime(1020, t + 0.08);
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.linearRampToValueAtTime(0.01, t + 0.08);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.09);
+  }
+  playLevelUp() {
+    if (!this.enabled || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const chord = [392, 523, 659, 784];
+    chord.forEach((freq, idx) => {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      const startT = t + idx * 0.07;
+      osc.frequency.setValueAtTime(freq, startT);
+      gain.gain.setValueAtTime(0.15, startT);
+      gain.gain.exponentialRampToValueAtTime(0.01, startT + 0.26);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(startT);
+      osc.stop(startT + 0.28);
+    });
+  }
+}
+const audio = new NavalSoundSynthesizer();
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let W = canvas.width = window.innerWidth;
+let H = canvas.height = window.innerHeight;
+
+window.addEventListener('resize', () => {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+});
+
+const WORLD_WIDTH = 4500;
+const WORLD_HEIGHT = 4500;
+
+let gameState = 'START';
+let gameTime = 0;
+let kills = 0;
+let lastTimestamp = 0;
+let warningTimer = 0;
+let decoyBannerTimer = 0;
+
+const keys = { w: false, a: false, s: false, d: false, ArrowUp: false, ArrowLeft: false, ArrowDown: false, ArrowRight: false };
+
+// Dynamic virtual floating joystick tracker
+const dynamicStick = {
+  active: false,
+  identifier: null,
+  originX: 0,
+  originY: 0,
+  currentX: 0,
+  currentY: 0,
+  maxRadius: 55,
+  dx: 0,
+  dy: 0
+};
+
+const joystickEl = document.getElementById('floating-joystick');
+const stickEl = document.getElementById('floating-stick');
+
+const warship = {
+  x: WORLD_WIDTH / 2,
+  y: WORLD_HEIGHT / 2,
+  vx: 0,
+  vy: 0,
+  heading: -Math.PI / 2,
+  targetHeading: -Math.PI / 2,
+  speed: 160,
+  length: 58,
+  width: 20,
+  hp: 200,          // Doubled Hull
+  maxHp: 200,       // Doubled Base Max Hull
+  rank: 1,
+  xp: 0,
+  nextXp: 15,
+  radarAngle: 0,
+  magnetRadius: 120,
+  ciwsAngle: -Math.PI / 2,
+  invulnerableTimer: 0,
+  damageFlash: 0
+};
+
+// 4 Startup Weapon Systems: fire-rate-only upgrades
+const weapons = {
+  // a) Anti-Air (AA) Missiles: targets enemy missiles only. Fire rate 1 every 3s
+  aaMissile: {
+    level: 1,
+    timer: 0,
+    interval: 3.0,
+    damage: 32,
+    speed: 510,
+    blastRadius: 55,
+    icon: '🚀',
+    name: 'Anti-Air (AA) Missiles'
+  },
+  // b) Anti-Ship (ASuW) Missiles: targets enemy ships only. Fire rate 1 every 3s. Noticeably larger missile graphic
+  asuWMissile: {
+    level: 1,
+    timer: 0,
+    interval: 3.0,
+    damage: 130,
+    speed: 400,
+    blastRadius: 90,
+    icon: '🚢',
+    name: 'Anti-Ship (ASuW) Missiles'
+  },
+  // c) Decoy / Chaff Launcher: manual button on screen, 5s reload, 50% screen missile kill rate
+  decoy: {
+    level: 1,
+    cooldownRemaining: 0,
+    cooldownTotal: 5.0,
+    icon: '✨',
+    name: 'Chaff / Decoy Launcher'
+  },
+  // d) Close-In Weapon System (CIWS): Gatling cannon. Fire rate 2 per second (interval: 0.5s)
+  ciws: {
+    level: 1,
+    timer: 0,
+    interval: 0.50,
+    damage: 18,
+    range: 0,
+    icon: '💥',
+    name: 'CIWS Gatling'
+  }
+};
+
+// Fire Fighting Damage Control (FFDC) - basic equipment recovering HP per second
+const ffdc = {
+  level: 1,
+  hpPerSecond: 1.0,
+  icon: '🧯',
+  name: 'Fire Fighting Damage Control (FFDC)'
+};
+
+let ciwsTracers = [];
+let aaMissiles = [];
+let asuWMissiles = [];
+let activeDecoys = [];
+let enemyMissiles = [];
+let enemyShips = [];       // Hard capped at max 3 active ships
+let salvageCrates = [];
+let particles = [];
+let wakeTrails = [];
+let damageFloats = [];
+
+const MISSILE_TYPES = {
+  cruise: { hp: 16, speed: 175, radius: 8, color: '#f87171', name: 'Cruise Missile', xp: 2, damage: 14, trailColor: '#fb923c' },
+  swarm: { hp: 8, speed: 230, radius: 5, color: '#38bdf8', name: 'Micro-Swarm', xp: 1, damage: 8, trailColor: '#67e8f9' },
+  heavy: { hp: 45, speed: 150, radius: 11, color: '#f59e0b', name: 'Heavy ASM', xp: 5, damage: 26, trailColor: '#fbbf24' }
+};
+
+const ENEMY_SHIP_TYPES = {
+  corvette: { hp: 130, speed: 115, length: 46, width: 14, color: '#e11d48', name: 'Hostile Corvette', xp: 18, orbitDist: 360, fireCooldown: 3.5 },
+  destroyer: { hp: 250, speed: 90, length: 58, width: 18, color: '#c026d3', name: 'Guided Destroyer', xp: 32, orbitDist: 460, fireCooldown: 2.8 },
+  cruiser: { hp: 480, speed: 70, length: 72, width: 22, color: '#9333ea', name: 'Strike Cruiser', xp: 60, orbitDist: 540, fireCooldown: 2.2 }
+};
+
+let missileSpawnTimer = 0;
+let shipRespawnTimer = 0;
+
+function spawnExplosion(x, y, color = '#fb923c', count = 16, maxSpeed = 160) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = (Math.random() * 0.8 + 0.2) * maxSpeed;
+    particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      color: color,
+      radius: Math.random() * 3 + 2,
+      life: 0.35 + Math.random() * 0.2,
+      maxLife: 0.5
+    });
+  }
+}
+
+function spawnFloatingText(x, y, text, color = '#38bdf8') {
+  damageFloats.push({
+    x: x + (Math.random() * 20 - 10),
+    y: y - 10,
+    text: text,
+    color: color,
+    life: 0.65,
+    maxLife: 0.65,
+    vy: -35
+  });
+}
+
+function spawnWakeBubble(x, y, radius = 5) {
+  wakeTrails.push({
+    x: x + (Math.random() * 6 - 3),
+    y: y + (Math.random() * 6 - 3),
+    radius: radius,
+    life: 1.2
+  });
+}
+
+function isInsideScreen(x, y) {
+  const camX = warship.x - W / 2;
+  const camY = warship.y - H / 2;
+  return x >= camX && x <= camX + W && y >= camY && y <= camY + H;
+}
+
+// a) Anti-Air (AA) Missiles: targets and intercepts enemy missiles only
+function updateAAMissiles(dt) {
+  weapons.aaMissile.timer += dt;
+  if (weapons.aaMissile.timer >= weapons.aaMissile.interval) {
+    let target = null;
+    let minDist = Infinity;
+    for (let m of enemyMissiles) {
+      if (m.dead || !isInsideScreen(m.x, m.y)) continue;
+      const d = Math.hypot(m.x - warship.x, m.y - warship.y);
+      if (d < minDist) {
+        minDist = d;
+        target = m;
+      }
+    }
+
+    if (target) {
+      weapons.aaMissile.timer = 0;
+      audio.playAALaunch();
+
+      const launchAngle = warship.heading - Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+      aaMissiles.push({
+        x: warship.x,
+        y: warship.y,
+        vx: Math.cos(launchAngle) * 240,
+        vy: Math.sin(launchAngle) * 240,
+        target: target,
+        life: 3.5,
+        speed: weapons.aaMissile.speed,
+        blastRadius: weapons.aaMissile.blastRadius,
+        damage: weapons.aaMissile.damage
+      });
+    }
+  }
+}
+
+// b) Anti-Ship (ASuW) Missiles: targets enemy ships only (noticeably larger graphic)
+function updateASuWMissiles(dt) {
+  weapons.asuWMissile.timer += dt;
+  if (weapons.asuWMissile.timer >= weapons.asuWMissile.interval) {
+    let target = null;
+    let minDist = Infinity;
+    for (let s of enemyShips) {
+      // Must be alive AND visible within the current screen viewport bounds
+      if (s.dead || !isInsideScreen(s.x, s.y)) continue;
+      const d = Math.hypot(s.x - warship.x, s.y - warship.y);
+      if (d < minDist) {
+        minDist = d;
+        target = s;
+      }
+    }
+
+    if (target) {
+      weapons.asuWMissile.timer = 0;
+      audio.playASuWLaunch();
+
+      const launchAngle = warship.heading + Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+      asuWMissiles.push({
+        x: warship.x,
+        y: warship.y,
+        vx: Math.cos(launchAngle) * 180,
+        vy: Math.sin(launchAngle) * 180,
+        target: target,
+        life: 5.5,
+        speed: weapons.asuWMissile.speed,
+        blastRadius: weapons.asuWMissile.blastRadius,
+        damage: weapons.asuWMissile.damage
+      });
+    }
+  }
+}
+
+// c) Decoy / Chaff Launcher: Manual activation function
+function triggerManualDecoy() {
+  if (gameState !== 'PLAYING') return;
+  if (weapons.decoy.cooldownRemaining > 0) return;
+
+  weapons.decoy.cooldownRemaining = weapons.decoy.cooldownTotal;
+  audio.playDecoyChaff();
+
+  // Show 2-second decoy banner
+  const decoyBanner = document.getElementById('decoy-banner');
+  decoyBanner.innerText = `✨ DECOYS DISPENSED - 50% MISSILE INSTANT KILL RATE ✨`;
+  decoyBanner.style.display = 'block';
+  decoyBannerTimer = 2.0;
+
+  // Eject decoys sideways (Port and Starboard)
+  const portAngle = warship.heading - Math.PI / 2;
+  const stbdAngle = warship.heading + Math.PI / 2;
+  const ejectSpeed = 130;
+
+  activeDecoys.push({
+    x: warship.x,
+    y: warship.y,
+    vx: Math.cos(portAngle) * ejectSpeed,
+    vy: Math.sin(portAngle) * ejectSpeed,
+    life: 1.0,
+    maxLife: 1.0,
+    sparkleTimer: 0
+  });
+
+  activeDecoys.push({
+    x: warship.x,
+    y: warship.y,
+    vx: Math.cos(stbdAngle) * ejectSpeed,
+    vy: Math.sin(stbdAngle) * ejectSpeed,
+    life: 1.0,
+    maxLife: 1.0,
+    sparkleTimer: 0
+  });
+
+  // 50% instant kill chance on ALL on-screen enemy missiles (does NOT affect enemy ships)
+  for (let m of enemyMissiles) {
+    if (m.dead) continue;
+    if (isInsideScreen(m.x, m.y)) {
+      if (Math.random() < 0.50) {
+        applyDamageToMissile(m, 99999, 'DECOY SPOOFED');
+      }
+    }
+  }
+}
+
+// d) CIWS Gatling Cannon: targets missiles only within ~50% screen size
+function updateCIWS(dt) {
+  weapons.ciws.timer += dt;
+  weapons.ciws.range = Math.min(W, H) * 0.50; // ~50% screen size
+
+  if (weapons.ciws.timer >= weapons.ciws.interval) {
+    let nearest = null;
+    let minDist = weapons.ciws.range;
+
+    for (let m of enemyMissiles) {
+      if (m.dead) continue;
+      const d = Math.hypot(m.x - warship.x, m.y - warship.y);
+      if (d < minDist) {
+        minDist = d;
+        nearest = m;
+      }
+    }
+
+    if (nearest) {
+      weapons.ciws.timer = 0;
+      const aimAngle = Math.atan2(nearest.y - warship.y, nearest.x - warship.x);
+      warship.ciwsAngle = aimAngle;
+      audio.playCiws();
+
+      const speed = 780;
+      ciwsTracers.push({
+        x: warship.x + Math.cos(warship.heading) * (warship.length * 0.35),
+        y: warship.y + Math.sin(warship.heading) * (warship.length * 0.35),
+        vx: Math.cos(aimAngle) * speed,
+        vy: Math.sin(aimAngle) * speed,
+        rangeLeft: weapons.ciws.range,
+        damage: weapons.ciws.damage
+      });
+    }
+  }
+}
+
+function applyDamageToMissile(m, damage, customText = null) {
+  m.hp -= damage;
+  m.flashTimer = 0.1;
+
+  if (customText) {
+    spawnFloatingText(m.x, m.y, customText, '#38bdf8');
+  } else {
+    spawnFloatingText(m.x, m.y, Math.round(damage), '#facc15');
+  }
+
+  if (m.hp <= 0 && !m.dead) {
+    m.dead = true;
+    kills++;
+    document.getElementById('kill-text').innerText = kills;
+    audio.playExplosion(false);
+    spawnExplosion(m.x, m.y, m.trailColor, 16, 140);
+
+    salvageCrates.push({
+      x: m.x,
+      y: m.y,
+      xp: m.xp,
+      isBossBox: false,
+      radius: 6
+    });
+  }
+}
+
+function applyDamageToEnemyShip(ship, damage) {
+  ship.hp -= damage;
+  ship.flashTimer = 0.12;
+  spawnFloatingText(ship.x, ship.y, Math.round(damage), '#f43f5e');
+
+  if (ship.hp <= 0 && !ship.dead) {
+    ship.dead = true;
+    kills++;
+    document.getElementById('kill-text').innerText = kills;
+    audio.playExplosion(true);
+    spawnExplosion(ship.x, ship.y, '#f43f5e', 40, 220);
+
+    salvageCrates.push({
+      x: ship.x,
+      y: ship.y,
+      xp: ship.xp,
+      isBossBox: true,
+      radius: 12
+    });
+  }
+}
+
+function spawnEnemyShip() {
+  const angle = Math.random() * Math.PI * 2;
+  const spawnDist = Math.max(W, H) * 0.65 + 160;
+  const sx = Math.min(Math.max(80, warship.x + Math.cos(angle) * spawnDist), WORLD_WIDTH - 80);
+  const sy = Math.min(Math.max(80, warship.y + Math.sin(angle) * spawnDist), WORLD_HEIGHT - 80);
+
+  let type = 'corvette';
+  if (gameTime > 150 && Math.random() < 0.35) {
+    type = 'cruiser';
+  } else if (gameTime > 50 && Math.random() < 0.5) {
+    type = 'destroyer';
+  }
+
+  const tpl = ENEMY_SHIP_TYPES[type];
+  enemyShips.push({
+    ...tpl,
+    x: sx,
+    y: sy,
+    hp: tpl.hp * (1 + gameTime / 300),
+    maxHp: tpl.hp * (1 + gameTime / 300),
+    heading: angle + Math.PI / 2,
+    orbitDirection: Math.random() < 0.5 ? 1 : -1,
+    fireTimer: Math.random() * 2.0,
+    flashTimer: 0,
+    dead: false
+  });
+}
+
+function updateEnemyShips(dt) {
+  // Max 3 enemy ships active at any time. When one is destroyed, another spawns in.
+  const activeCount = enemyShips.filter(s => !s.dead).length;
+  if (activeCount < 3) {
+    shipRespawnTimer += dt;
+    if (shipRespawnTimer >= 2.0 || activeCount === 0) {
+      shipRespawnTimer = 0;
+      spawnEnemyShip();
+      showWarningBanner('⚠️ NEW HOSTILE CONTACT ACQUIRED ⚠️');
+    }
+  }
+
+  for (let i = 0; i < enemyShips.length; i++) {
+    const s = enemyShips[i];
+    if (s.dead) continue;
+    if (s.flashTimer > 0) s.flashTimer -= dt;
+
+    const dx = warship.x - s.x;
+    const dy = warship.y - s.y;
+    const distToPlayer = Math.hypot(dx, dy);
+
+    // Orbit behavior (circles without ramming)
+    const angleToPlayer = Math.atan2(dy, dx);
+    const tangentAngle = angleToPlayer + (Math.PI / 2) * s.orbitDirection;
+
+    let targetHeading = tangentAngle;
+    if (distToPlayer > s.orbitDist + 60) {
+      targetHeading = angleToPlayer + (Math.PI / 3) * s.orbitDirection;
+    } else if (distToPlayer < s.orbitDist - 60) {
+      targetHeading = angleToPlayer + (Math.PI * 2 / 3) * s.orbitDirection;
+    }
+
+    let hDiff = targetHeading - s.heading;
+    while (hDiff < -Math.PI) hDiff += Math.PI * 2;
+    while (hDiff > Math.PI) hDiff -= Math.PI * 2;
+    s.heading += hDiff * Math.min(1, dt * 2.8);
+
+    s.x += Math.cos(s.heading) * s.speed * dt;
+    s.y += Math.sin(s.heading) * s.speed * dt;
+
+    s.x = Math.max(60, Math.min(WORLD_WIDTH - 60, s.x));
+    s.y = Math.max(60, Math.min(WORLD_HEIGHT - 60, s.y));
+
+    if (Math.random() < 0.35) {
+      const sternX = s.x - Math.cos(s.heading) * (s.length * 0.45);
+      const sternY = s.y - Math.sin(s.heading) * (s.length * 0.45);
+      spawnWakeBubble(sternX, sternY, 5);
+    }
+
+    // Enemy ship missile firing
+    s.fireTimer += dt;
+    if (s.fireTimer >= s.fireCooldown) {
+      s.fireTimer = 0;
+      audio.playASuWLaunch();
+
+      const launchAngle = s.heading + (Math.random() - 0.5) * 0.5;
+      enemyMissiles.push({
+        ...MISSILE_TYPES.cruise,
+        x: s.x + Math.cos(s.heading) * (s.length * 0.3),
+        y: s.y + Math.sin(s.heading) * (s.length * 0.3),
+        hp: 16 * (1 + gameTime / 240),
+        maxHp: 16 * (1 + gameTime / 240),
+        angle: launchAngle,
+        smokeTimer: 0,
+        flashTimer: 0,
+        dead: false
+      });
+    }
+  }
+
+  enemyShips = enemyShips.filter(s => !s.dead);
+}
+
+function updateMissileSpawning(dt) {
+  missileSpawnTimer += dt;
+  const spawnInterval = Math.max(0.35, 1.6 - (gameTime / 180) * 0.9);
+
+  if (missileSpawnTimer >= spawnInterval) {
+    missileSpawnTimer = 0;
+
+    const angle = Math.random() * Math.PI * 2;
+    const spawnDist = Math.max(W, H) * 0.7 + 100;
+    const sx = Math.min(Math.max(40, warship.x + Math.cos(angle) * spawnDist), WORLD_WIDTH - 40);
+    const sy = Math.min(Math.max(40, warship.y + Math.sin(angle) * spawnDist), WORLD_HEIGHT - 40);
+
+    let typeKey = 'cruise';
+    const roll = Math.random();
+    if (gameTime > 120 && roll < 0.3) {
+      typeKey = 'heavy';
+    } else if (gameTime > 30 && roll < 0.6) {
+      typeKey = 'swarm';
+    }
+
+    const tpl = MISSILE_TYPES[typeKey];
+    enemyMissiles.push({
+      ...tpl,
+      x: sx,
+      y: sy,
+      hp: tpl.hp * (1 + gameTime / 240),
+      maxHp: tpl.hp * (1 + gameTime / 240),
+      angle: Math.atan2(warship.y - sy, warship.x - sx),
+      smokeTimer: 0,
+      flashTimer: 0,
+      dead: false
+    });
+  }
+}
+
+function updatePhysics(dt) {
+  let moveX = 0;
+  let moveY = 0;
+
+  if (keys.w || keys.ArrowUp) moveY -= 1;
+  if (keys.s || keys.ArrowDown) moveY += 1;
+  if (keys.a || keys.ArrowLeft) moveX -= 1;
+  if (keys.d || keys.ArrowRight) moveX += 1;
+
+  if (dynamicStick.active) {
+    moveX = dynamicStick.dx;
+    moveY = dynamicStick.dy;
+  }
+
+  const mag = Math.hypot(moveX, moveY);
+  if (mag > 0.08) {
+    warship.targetHeading = Math.atan2(moveY, moveX);
+    let diff = warship.targetHeading - warship.heading;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    warship.heading += diff * Math.min(1, dt * 5.0);
+
+    const thrust = (mag > 1 ? 1 : mag) * warship.speed;
+    warship.vx += Math.cos(warship.heading) * thrust * dt * 4.0;
+    warship.vy += Math.sin(warship.heading) * thrust * dt * 4.0;
+
+    if (Math.random() < 0.6) {
+      const sternX = warship.x - Math.cos(warship.heading) * (warship.length * 0.45);
+      const sternY = warship.y - Math.sin(warship.heading) * (warship.length * 0.45);
+      spawnWakeBubble(sternX, sternY, 7);
+    }
+  }
+
+  warship.vx *= Math.pow(0.88, dt * 60);
+  warship.vy *= Math.pow(0.88, dt * 60);
+
+  warship.x += warship.vx * dt;
+  warship.y += warship.vy * dt;
+
+  warship.x = Math.max(30, Math.min(WORLD_WIDTH - 30, warship.x));
+  warship.y = Math.max(30, Math.min(WORLD_HEIGHT - 30, warship.y));
+
+  warship.radarAngle += dt * 3.5;
+  if (warship.invulnerableTimer > 0) warship.invulnerableTimer -= dt;
+  if (warship.damageFlash > 0) warship.damageFlash -= dt;
+
+  // FFDC passive HP restoration per second
+  if (warship.hp < warship.maxHp) {
+    warship.hp = Math.min(warship.maxHp, warship.hp + ffdc.hpPerSecond * dt);
+    updateHpUI();
+  }
+
+  // Decoy Cooldown and Button Overlay update
+  if (weapons.decoy.cooldownRemaining > 0) {
+    weapons.decoy.cooldownRemaining = Math.max(0, weapons.decoy.cooldownRemaining - dt);
+    const pct = (weapons.decoy.cooldownRemaining / weapons.decoy.cooldownTotal) * 100;
+    document.getElementById('decoy-cooldown-overlay').style.height = `${pct}%`;
+    document.getElementById('decoy-timer-label').innerText = `${weapons.decoy.cooldownRemaining.toFixed(1)}s`;
+    document.getElementById('decoy-btn').classList.add('cooling-down');
+  } else {
+    document.getElementById('decoy-cooldown-overlay').style.height = `0%`;
+    document.getElementById('decoy-timer-label').innerText = `READY`;
+    document.getElementById('decoy-btn').classList.remove('cooling-down');
+  }
+
+  // Update CIWS Tracers
+  for (let i = ciwsTracers.length - 1; i >= 0; i--) {
+    const tr = ciwsTracers[i];
+    const step = Math.hypot(tr.vx, tr.vy) * dt;
+    tr.x += tr.vx * dt;
+    tr.y += tr.vy * dt;
+    tr.rangeLeft -= step;
+
+    for (let m of enemyMissiles) {
+      if (m.dead) continue;
+      if (Math.hypot(m.x - tr.x, m.y - tr.y) < m.radius + 6) {
+        applyDamageToMissile(m, tr.damage);
+        tr.rangeLeft = -1;
+        break;
+      }
+    }
+
+    if (tr.rangeLeft <= 0) ciwsTracers.splice(i, 1);
+  }
+
+  // Update AA Missiles
+  for (let i = aaMissiles.length - 1; i >= 0; i--) {
+    const mis = aaMissiles[i];
+    mis.life -= dt;
+
+    if (mis.target && !mis.target.dead) {
+      const angle = Math.atan2(mis.target.y - mis.y, mis.target.x - mis.x);
+      mis.vx = Math.cos(angle) * mis.speed;
+      mis.vy = Math.sin(angle) * mis.speed;
+    }
+
+    mis.x += mis.vx * dt;
+    mis.y += mis.vy * dt;
+
+    particles.push({
+      x: mis.x,
+      y: mis.y,
+      vx: (Math.random() - 0.5) * 15,
+      vy: (Math.random() - 0.5) * 15,
+      color: '#38bdf8',
+      radius: 2.5,
+      life: 0.22,
+      maxLife: 0.22
+    });
+
+    let detonated = false;
+    for (let m of enemyMissiles) {
+      if (m.dead) continue;
+      if (Math.hypot(m.x - mis.x, m.y - mis.y) < m.radius + 10) {
+        detonated = true;
+        break;
+      }
+    }
+
+    if (detonated || mis.life <= 0) {
+      aaMissiles.splice(i, 1);
+      audio.playExplosion(false);
+      spawnExplosion(mis.x, mis.y, '#38bdf8', 18, 160);
+
+      for (let m of enemyMissiles) {
+        if (m.dead) continue;
+        const d = Math.hypot(m.x - mis.x, m.y - mis.y);
+        if (d < mis.blastRadius) {
+          applyDamageToMissile(m, mis.damage * (1 - d / mis.blastRadius * 0.4));
+        }
+      }
+    }
+  }
+
+  // Update ASuW Missiles (strikes enemy ships only)
+  for (let i = asuWMissiles.length - 1; i >= 0; i--) {
+    const mis = asuWMissiles[i];
+    mis.life -= dt;
+
+    if (mis.target && !mis.target.dead) {
+      const angle = Math.atan2(mis.target.y - mis.y, mis.target.x - mis.x);
+      mis.vx = Math.cos(angle) * mis.speed;
+      mis.vy = Math.sin(angle) * mis.speed;
+    }
+
+    mis.x += mis.vx * dt;
+    mis.y += mis.vy * dt;
+
+    particles.push({
+      x: mis.x,
+      y: mis.y,
+      vx: (Math.random() - 0.5) * 20,
+      vy: (Math.random() - 0.5) * 20,
+      color: '#f97316',
+      radius: 4.5,
+      life: 0.35,
+      maxLife: 0.35
+    });
+
+    let detonated = false;
+    for (let s of enemyShips) {
+      if (s.dead) continue;
+      if (Math.hypot(s.x - mis.x, s.y - mis.y) < s.width + 15) {
+        detonated = true;
+        break;
+      }
+    }
+
+    if (detonated || mis.life <= 0) {
+      asuWMissiles.splice(i, 1);
+      audio.playExplosion(true);
+      spawnExplosion(mis.x, mis.y, '#f97316', 32, 220);
+
+      for (let s of enemyShips) {
+        if (s.dead) continue;
+        const d = Math.hypot(s.x - mis.x, s.y - mis.y);
+        if (d < mis.blastRadius) {
+          applyDamageToEnemyShip(s, mis.damage * (1 - d / mis.blastRadius * 0.3));
+        }
+      }
+    }
+  }
+
+  // Update Decoys
+  for (let i = activeDecoys.length - 1; i >= 0; i--) {
+    const d = activeDecoys[i];
+    d.life -= dt;
+    d.x += d.vx * dt;
+    d.y += d.vy * dt;
+    d.vx *= 0.95;
+    d.vy *= 0.95;
+
+    d.sparkleTimer += dt;
+    if (d.sparkleTimer > 0.05) {
+      d.sparkleTimer = 0;
+      particles.push({
+        x: d.x + (Math.random() * 8 - 4),
+        y: d.y + (Math.random() * 8 - 4),
+        vx: (Math.random() - 0.5) * 20,
+        vy: (Math.random() - 0.5) * 20,
+        color: '#fef08a',
+        radius: Math.random() * 3 + 2,
+        life: 0.35,
+        maxLife: 0.35
+      });
+    }
+
+    if (d.life <= 0) {
+      activeDecoys.splice(i, 1);
+    }
+  }
+
+  // Update Enemy Missiles
+  for (let i = 0; i < enemyMissiles.length; i++) {
+    const m = enemyMissiles[i];
+    if (m.dead) continue;
+    if (m.flashTimer > 0) m.flashTimer -= dt;
+
+    const targetAngle = Math.atan2(warship.y - m.y, warship.x - m.x);
+    let diff = targetAngle - m.angle;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    m.angle += diff * Math.min(1, dt * 2.5);
+
+    m.x += Math.cos(m.angle) * m.speed * dt;
+    m.y += Math.sin(m.angle) * m.speed * dt;
+
+    m.smokeTimer += dt;
+    if (m.smokeTimer >= 0.04) {
+      m.smokeTimer = 0;
+      particles.push({
+        x: m.x - Math.cos(m.angle) * (m.radius + 3),
+        y: m.y - Math.sin(m.angle) * (m.radius + 3),
+        vx: -Math.cos(m.angle) * 40 + (Math.random() - 0.5) * 20,
+        vy: -Math.sin(m.angle) * 40 + (Math.random() - 0.5) * 20,
+        color: m.trailColor,
+        radius: Math.random() * 2.5 + 2,
+        life: 0.28,
+        maxLife: 0.28
+      });
+    }
+
+    const dShip = Math.hypot(warship.x - m.x, warship.y - m.y);
+    if (dShip < warship.width + m.radius) {
+      m.dead = true;
+      audio.playExplosion(true);
+      spawnExplosion(m.x, m.y, '#ef4444', 28, 200);
+
+      if (warship.invulnerableTimer <= 0) {
+        warship.hp -= m.damage;
+        warship.invulnerableTimer = 0.5;
+        warship.damageFlash = 0.2;
+        updateHpUI();
+
+        if (warship.hp <= 0) {
+          triggerGameOver();
+          return;
+        }
+      }
+    }
+  }
+
+  enemyMissiles = enemyMissiles.filter(m => !m.dead);
+
+  // Update Salvage Crates
+  for (let i = salvageCrates.length - 1; i >= 0; i--) {
+    const c = salvageCrates[i];
+    const d = Math.hypot(warship.x - c.x, warship.y - c.y);
+
+    if (d < warship.magnetRadius) {
+      const pullAngle = Math.atan2(warship.y - c.y, warship.x - c.x);
+      c.x += Math.cos(pullAngle) * 420 * dt;
+      c.y += Math.sin(pullAngle) * 420 * dt;
+    }
+
+    if (d < warship.length * 0.5 + c.radius) {
+      collectSalvage(c);
+      salvageCrates.splice(i, 1);
+    }
+  }
+
+  // Update Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Update Wake Trails
+  for (let i = wakeTrails.length - 1; i >= 0; i--) {
+    const w = wakeTrails[i];
+    w.life -= dt;
+    w.radius += dt * 7;
+    if (w.life <= 0) wakeTrails.splice(i, 1);
+  }
+
+  // Update Floating Texts
+  for (let i = damageFloats.length - 1; i >= 0; i--) {
+    const f = damageFloats[i];
+    f.y += f.vy * dt;
+    f.life -= dt;
+    if (f.life <= 0) damageFloats.splice(i, 1);
+  }
+
+  // 2-Second Decoy Banner display duration
+  if (decoyBannerTimer > 0) {
+    decoyBannerTimer -= dt;
+    if (decoyBannerTimer <= 0) {
+      document.getElementById('decoy-banner').style.display = 'none';
+    }
+  }
+
+  if (warningTimer > 0) {
+    warningTimer -= dt;
+    if (warningTimer <= 0) {
+      document.getElementById('warning-banner').style.display = 'none';
+    }
+  }
+}
+
+function collectSalvage(crate) {
+  audio.playSalvage();
+  warship.xp += crate.xp;
+
+  if (warship.xp >= warship.nextXp) {
+    triggerLevelUp();
+  }
+  updateXpUI();
+}
+
+function updateXpUI() {
+  const pct = Math.min(100, (warship.xp / warship.nextXp) * 100);
+  document.getElementById('xp-fill').style.width = pct + '%';
+  document.getElementById('xp-label').innerText = `COMMAND RANK ${warship.rank} - SALVAGE: ${Math.floor(warship.xp)}/${warship.nextXp}`;
+}
+
+function updateHpUI() {
+  const pct = Math.max(0, (warship.hp / warship.maxHp) * 100);
+  document.getElementById('hp-fill').style.width = pct + '%';
+  document.getElementById('hp-text').innerText = `${Math.ceil(warship.hp)}/${warship.maxHp}`;
+}
+
+function triggerLevelUp() {
+  audio.playLevelUp();
+  warship.rank++;
+  warship.xp -= warship.nextXp;
+  warship.nextXp = Math.floor(warship.nextXp * 1.38 + 10);
+
+  gameState = 'LEVELUP';
+  buildUpgradeOptions();
+  document.getElementById('levelup-modal').style.display = 'flex';
+  hideDynamicJoystick();
+}
+
+function buildUpgradeOptions() {
+  const container = document.getElementById('upgrade-options');
+  container.innerHTML = '';
+
+  const candidates = [
+    {
+      key: 'aaRate',
+      title: 'Anti-Air Missile Fire Rate +',
+      icon: '🚀',
+      desc: `Reduces AA missile launch interval by 20% (Now: ${weapons.aaMissile.interval.toFixed(2)}s -> ${(weapons.aaMissile.interval * 0.8).toFixed(2)}s)`
+    },
+    {
+      key: 'asuWRate',
+      title: 'Anti-Ship Missile Fire Rate +',
+      icon: '🚢',
+      desc: `Reduces Anti-Ship missile launch interval by 20% (Now: ${weapons.asuWMissile.interval.toFixed(2)}s -> ${(weapons.asuWMissile.interval * 0.8).toFixed(2)}s)`
+    },
+    {
+      key: 'ciwsRate',
+      title: 'CIWS Fire Rate +',
+      icon: '💥',
+      desc: `Increases CIWS rounds/second (Now: ${(1 / weapons.ciws.interval).toFixed(1)}/s -> ${(1 / (weapons.ciws.interval * 0.78)).toFixed(1)}/s)`
+    },
+    {
+      key: 'decoyReload',
+      title: 'Decoy Reload Speed +',
+      icon: '✨',
+      desc: `Reduces Decoy cooldown reload time by 15% (Now: ${weapons.decoy.cooldownTotal.toFixed(1)}s -> ${(weapons.decoy.cooldownTotal * 0.85).toFixed(1)}s)`
+    },
+    {
+      key: 'ffdc',
+      title: 'FFDC Health Recovery +',
+      icon: '🧯',
+      desc: `Increases Damage Control repair rate by +1.5 HP/second (Now: ${ffdc.hpPerSecond.toFixed(1)} HP/s -> ${(ffdc.hpPerSecond + 1.5).toFixed(1)} HP/s)`
+    }
+  ];
+
+  const selected = candidates.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+  selected.forEach(opt => {
+    const card = document.createElement('div');
+    card.className = 'upgrade-card';
+    card.innerHTML = `
+      <div class="card-icon">${opt.icon}</div>
+      <div class="card-info">
+        <h4>${opt.title}</h4>
+        <p>${opt.desc}</p>
+      </div>
+    `;
+    const activateUpgrade = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      applyUpgrade(opt.key);
+      document.getElementById('levelup-modal').style.display = 'none';
+      renderSystemBadges();
+      gameState = 'PLAYING';
+    };
+    card.addEventListener('pointerdown', activateUpgrade);
+    card.onclick = activateUpgrade;
+    container.appendChild(card);
+  });
+}
+
+function applyUpgrade(key) {
+  if (key === 'aaRate') {
+    weapons.aaMissile.level++;
+    weapons.aaMissile.interval = Math.max(0.8, weapons.aaMissile.interval * 0.8);
+  } else if (key === 'asuWRate') {
+    weapons.asuWMissile.level++;
+    weapons.asuWMissile.interval = Math.max(0.8, weapons.asuWMissile.interval * 0.8);
+  } else if (key === 'ciwsRate') {
+    weapons.ciws.level++;
+    weapons.ciws.interval = Math.max(0.12, weapons.ciws.interval * 0.78);
+  } else if (key === 'decoyReload') {
+    weapons.decoy.level++;
+    weapons.decoy.cooldownTotal = Math.max(2.0, weapons.decoy.cooldownTotal * 0.85);
+  } else if (key === 'ffdc') {
+    ffdc.level++;
+    ffdc.hpPerSecond += 1.5;
+  }
+}
+
+function renderSystemBadges() {
+  const container = document.getElementById('active-systems');
+  container.innerHTML = '';
+
+  const list = [
+    { name: 'AA Missiles', icon: weapons.aaMissile.icon, lvl: weapons.aaMissile.level },
+    { name: 'Anti-Ship Missiles', icon: weapons.asuWMissile.icon, lvl: weapons.asuWMissile.level },
+    { name: 'Decoy / Chaff', icon: weapons.decoy.icon, lvl: weapons.decoy.level },
+    { name: 'CIWS Gatling', icon: weapons.ciws.icon, lvl: weapons.ciws.level },
+    { name: 'FFDC Repair', icon: ffdc.icon, lvl: ffdc.level },
+    { name: 'ESM Tracking', icon: '📡', lvl: 'ON' }
+  ];
+
+  list.forEach(item => {
+    const badge = document.createElement('div');
+    badge.className = 'system-badge';
+    badge.title = `${item.name} (${typeof item.lvl === 'number' ? 'Mk ' + item.lvl : item.lvl})`;
+    badge.innerHTML = `<span>${item.icon}</span><span class="system-lvl">${item.lvl}</span>`;
+    container.appendChild(badge);
+  });
+}
+
+function render() {
+  ctx.clearRect(0, 0, W, H);
+
+  const camX = warship.x - W / 2;
+  const camY = warship.y - H / 2;
+
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // Ocean Tiles & Currents
+  const tileSize = 120;
+  const startCol = Math.floor(Math.max(0, camX) / tileSize);
+  const endCol = Math.ceil(Math.min(WORLD_WIDTH, camX + W) / tileSize);
+  const startRow = Math.floor(Math.max(0, camY) / tileSize);
+  const endRow = Math.ceil(Math.min(WORLD_HEIGHT, camY + H) / tileSize);
+
+  for (let c = startCol; c <= endCol; c++) {
+    for (let r = startRow; r <= endRow; r++) {
+      const tx = c * tileSize;
+      const ty = r * tileSize;
+      const wave = Math.sin((tx + ty + gameTime * 35) * 0.02) * 0.5 + 0.5;
+
+      ctx.fillStyle = wave > 0.5 ? '#031422' : '#020f1a';
+      ctx.fillRect(tx, ty, tileSize, tileSize);
+
+      ctx.strokeStyle = 'rgba(14, 165, 233, 0.04)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(tx, ty, tileSize, tileSize);
+    }
+  }
+
+  // World Boundary
+  ctx.strokeStyle = '#ef4444';
+  ctx.lineWidth = 6;
+  ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+  // ESM Bearing lines to enemy ships (standard startup equipment)
+  for (let s of enemyShips) {
+    if (s.dead) continue;
+    ctx.save();
+    ctx.beginPath();
+    ctx.setLineDash([8, 6]);
+    ctx.moveTo(warship.x, warship.y);
+    ctx.lineTo(s.x, s.y);
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const midX = (warship.x + s.x) / 2;
+    const midY = (warship.y + s.y) / 2;
+    const bearingDeg = Math.round(((Math.atan2(s.y - warship.y, s.x - warship.x) * 180 / Math.PI + 360 + 90) % 360));
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.fillStyle = '#f87171';
+    ctx.fillText(`ESM BRG ${bearingDeg}°`, midX + 8, midY - 6);
+    ctx.restore();
+  }
+
+  // CIWS Range Circle (~50% screen size)
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(warship.x, warship.y, weapons.ciws.range, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+  ctx.setLineDash([6, 6]);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  // Wake Trails
+  for (let w of wakeTrails) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(w.x, w.y, w.radius, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(186, 230, 253, ${Math.max(0, w.life * 0.22)})`;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Salvage Crates
+  for (let s of salvageCrates) {
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(gameTime * 2);
+    ctx.fillStyle = s.isBossBox ? '#f43f5e' : '#38bdf8';
+    ctx.shadowColor = s.isBossBox ? '#f43f5e' : '#38bdf8';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(-s.radius, -s.radius, s.radius * 2, s.radius * 2);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-s.radius, -s.radius, s.radius * 2, s.radius * 2);
+    ctx.restore();
+  }
+
+  // Decoy Flares
+  for (let d of activeDecoys) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = '#fef08a';
+    ctx.shadowColor = '#facc15';
+    ctx.shadowBlur = 14;
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 20 * (1 - d.life), 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(254, 240, 138, ${d.life * 0.6})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // CIWS Tracers
+  for (let tr of ciwsTracers) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(tr.x, tr.y);
+    ctx.lineTo(tr.x - tr.vx * 0.025, tr.y - tr.vy * 0.025);
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#eab308';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Anti-Air (AA) Missiles (Smaller, sleek)
+  for (let mis of aaMissiles) {
+    ctx.save();
+    ctx.translate(mis.x, mis.y);
+    const mAngle = Math.atan2(mis.vy, mis.vx);
+    ctx.rotate(mAngle);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(-6, -2, 12, 4);
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.moveTo(6, -2);
+    ctx.lineTo(10, 0);
+    ctx.lineTo(6, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Anti-Ship (ASuW) Missiles: Noticeably larger than AA missile
+  for (let mis of asuWMissiles) {
+    ctx.save();
+    ctx.translate(mis.x, mis.y);
+    const mAngle = Math.atan2(mis.vy, mis.vx);
+    ctx.rotate(mAngle);
+
+    // Large Booster
+    ctx.fillStyle = '#f97316';
+    ctx.fillRect(-14, -5, 28, 10);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(-6, -5, 10, 10);
+
+    // Warhead Nose
+    ctx.fillStyle = '#ea580c';
+    ctx.beginPath();
+    ctx.moveTo(14, -5);
+    ctx.lineTo(24, 0);
+    ctx.lineTo(14, 5);
+    ctx.closePath();
+    ctx.fill();
+
+    // Large delta fins
+    ctx.fillStyle = '#c2410c';
+    ctx.beginPath();
+    ctx.moveTo(-12, -9);
+    ctx.lineTo(-6, -5);
+    ctx.lineTo(-12, -5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-12, 9);
+    ctx.lineTo(-6, 5);
+    ctx.lineTo(-12, 5);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Enemy Combatant Warships (Max 3 active)
+  for (let s of enemyShips) {
+    ctx.save();
+    ctx.translate(s.x, s.y);
+    ctx.rotate(s.heading);
+
+    if (s.flashTimer > 0) {
+      ctx.fillStyle = '#ffffff';
+    } else {
+      ctx.fillStyle = s.color;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(s.length * 0.5, 0);
+    ctx.lineTo(s.length * 0.25, s.width * 0.5);
+    ctx.lineTo(-s.length * 0.45, s.width * 0.5);
+    ctx.lineTo(-s.length * 0.5, s.width * 0.35);
+    ctx.lineTo(-s.length * 0.5, -s.width * 0.35);
+    ctx.lineTo(-s.length * 0.45, -s.width * 0.5);
+    ctx.lineTo(s.length * 0.25, -s.width * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#f43f5e';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#4c0519';
+    ctx.fillRect(-s.length * 0.2, -s.width * 0.3, s.length * 0.35, s.width * 0.6);
+
+    const barW = s.length * 0.8;
+    const barH = 5;
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.fillRect(-barW / 2, -s.width - 12, barW, barH);
+    ctx.fillStyle = '#ef4444';
+    ctx.fillRect(-barW / 2, -s.width - 12, barW * Math.max(0, s.hp / s.maxHp), barH);
+
+    ctx.restore();
+  }
+
+  // Enemy Missiles
+  for (let m of enemyMissiles) {
+    ctx.save();
+    ctx.translate(m.x, m.y);
+    ctx.rotate(m.angle);
+
+    if (m.flashTimer > 0) {
+      ctx.fillStyle = '#ffffff';
+    } else {
+      ctx.fillStyle = m.color;
+    }
+
+    ctx.fillRect(-m.radius, -m.radius * 0.5, m.radius * 2, m.radius);
+    ctx.beginPath();
+    ctx.moveTo(m.radius, -m.radius * 0.5);
+    ctx.lineTo(m.radius + 5, 0);
+    ctx.lineTo(m.radius, m.radius * 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Ownship Warship
+  ctx.save();
+  ctx.translate(warship.x, warship.y);
+  ctx.rotate(warship.heading);
+
+  if (warship.damageFlash > 0) {
+    ctx.fillStyle = '#ffffff';
+  } else {
+    ctx.fillStyle = '#1e293b';
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(warship.length * 0.5, 0);
+  ctx.lineTo(warship.length * 0.25, warship.width * 0.5);
+  ctx.lineTo(-warship.length * 0.45, warship.width * 0.5);
+  ctx.lineTo(-warship.length * 0.5, warship.width * 0.35);
+  ctx.lineTo(-warship.length * 0.5, -warship.width * 0.35);
+  ctx.lineTo(-warship.length * 0.45, -warship.width * 0.5);
+  ctx.lineTo(warship.length * 0.25, -warship.width * 0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Superstructure
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(-warship.length * 0.2, -warship.width * 0.32, warship.length * 0.35, warship.width * 0.64);
+  ctx.fillStyle = '#64748b';
+  ctx.fillRect(-warship.length * 0.05, -warship.width * 0.2, warship.length * 0.15, warship.width * 0.4);
+
+  // Radar Mast
+  ctx.save();
+  ctx.rotate(warship.radarAngle);
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-8, 0);
+  ctx.lineTo(8, 0);
+  ctx.stroke();
+  ctx.restore();
+
+  // CIWS Mount
+  ctx.save();
+  ctx.translate(warship.length * 0.25, 0);
+  ctx.rotate(warship.ciwsAngle - warship.heading);
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.arc(0, 0, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(9, 0);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+
+  // Particles
+  for (let p of particles) {
+    ctx.save();
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Floating text / Damage numbers
+  for (let f of damageFloats) {
+    ctx.save();
+    ctx.font = '16px "Share Tech Mono"';
+    ctx.fillStyle = f.color;
+    ctx.globalAlpha = Math.max(0, f.life / f.maxLife);
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function gameLoop(timestamp) {
+  if (!lastTimestamp) lastTimestamp = timestamp;
+  const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.1);
+  lastTimestamp = timestamp;
+
+  if (gameState === 'PLAYING') {
+    gameTime += dt;
+    updateClockUI();
+    updateCIWS(dt);
+    updateAAMissiles(dt);
+    updateASuWMissiles(dt);
+    updateMissileSpawning(dt);
+    updateEnemyShips(dt);
+    updatePhysics(dt);
+  }
+
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+function updateClockUI() {
+  const m = Math.floor(gameTime / 60);
+  const s = Math.floor(gameTime % 60);
+  document.getElementById('timer-text').innerText = `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function triggerGameOver() {
+  gameState = 'GAMEOVER';
+  hideDynamicJoystick();
+  const m = Math.floor(gameTime / 60);
+  const s = Math.floor(gameTime % 60);
+  const tStr = `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+  document.getElementById('gameover-stats').innerText = `DEFENSE DURATION: ${tStr} | DESTROYED: ${kills} | RANK: ${warship.rank}`;
+  document.getElementById('gameover-modal').style.display = 'flex';
+}
+
+function resetGame() {
+  gameTime = 0;
+  kills = 0;
+  decoyBannerTimer = 0;
+  shipRespawnTimer = 0;
+
+  warship.x = WORLD_WIDTH / 2;
+  warship.y = WORLD_HEIGHT / 2;
+  warship.vx = 0;
+  warship.vy = 0;
+  warship.hp = 200;       // Doubled Hull
+  warship.maxHp = 200;
+  warship.rank = 1;
+  warship.xp = 0;
+  warship.nextXp = 15;
+  warship.invulnerableTimer = 0;
+  warship.damageFlash = 0;
+
+  weapons.aaMissile.level = 1;
+  weapons.aaMissile.interval = 3.0;
+
+  weapons.asuWMissile.level = 1;
+  weapons.asuWMissile.interval = 3.0;
+
+  weapons.decoy.level = 1;
+  weapons.decoy.cooldownRemaining = 0;
+  weapons.decoy.cooldownTotal = 5.0;
+
+  weapons.ciws.level = 1;
+  weapons.ciws.interval = 0.50;
+
+  ffdc.level = 1;
+  ffdc.hpPerSecond = 1.0;
+
+  ciwsTracers = [];
+  aaMissiles = [];
+  asuWMissiles = [];
+  activeDecoys = [];
+  enemyMissiles = [];
+  enemyShips = [];
+  salvageCrates = [];
+  particles = [];
+  wakeTrails = [];
+  damageFloats = [];
+
+  // Start with 3 active enemy ships
+  for (let i = 0; i < 3; i++) {
+    spawnEnemyShip();
+  }
+
+  document.getElementById('kill-text').innerText = '0';
+  document.getElementById('gameover-modal').style.display = 'none';
+  document.getElementById('pause-modal').style.display = 'none';
+  document.getElementById('warning-banner').style.display = 'none';
+  document.getElementById('decoy-banner').style.display = 'none';
+
+  updateHpUI();
+  updateXpUI();
+  renderSystemBadges();
+  hideDynamicJoystick();
+  gameState = 'PLAYING';
+}
+
+function showWarningBanner(msg) {
+  const b = document.getElementById('warning-banner');
+  b.innerText = msg;
+  b.style.display = 'block';
+  warningTimer = 3.0;
+}
+
+function showDynamicJoystick(x, y) {
+  dynamicStick.active = true;
+  dynamicStick.originX = x;
+  dynamicStick.originY = y;
+  dynamicStick.currentX = x;
+  dynamicStick.currentY = y;
+  dynamicStick.dx = 0;
+  dynamicStick.dy = 0;
+
+  joystickEl.style.left = `${x}px`;
+  joystickEl.style.top = `${y}px`;
+  joystickEl.style.display = 'block';
+  stickEl.style.transform = 'translate(-50%, -50%)';
+}
+
+function updateDynamicJoystick(x, y) {
+  if (!dynamicStick.active) return;
+  const deltaX = x - dynamicStick.originX;
+  const deltaY = y - dynamicStick.originY;
+  const dist = Math.hypot(deltaX, deltaY);
+
+  const angle = Math.atan2(deltaY, deltaX);
+  const clampedDist = Math.min(dist, dynamicStick.maxRadius);
+
+  const stickPosX = Math.cos(angle) * clampedDist;
+  const stickPosY = Math.sin(angle) * clampedDist;
+
+  stickEl.style.transform = `translate(calc(-50% + ${stickPosX}px), calc(-50% + ${stickPosY}px))`;
+
+  dynamicStick.dx = stickPosX / dynamicStick.maxRadius;
+  dynamicStick.dy = stickPosY / dynamicStick.maxRadius;
+}
+
+function hideDynamicJoystick() {
+  dynamicStick.active = false;
+  dynamicStick.identifier = null;
+  dynamicStick.dx = 0;
+  dynamicStick.dy = 0;
+  joystickEl.style.display = 'none';
+}
+
+// Window touch listener ignores touches over Decoy button or any interactive modal/UI
+window.addEventListener('touchstart', e => {
+  audio.init();
+  if (gameState !== 'PLAYING') return;
+
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    const target = document.elementFromPoint(t.clientX, t.clientY);
+
+    // CRITICAL: If touch begins inside Decoy button, top actions, or modal box, do NOT spawn joystick
+    if (target && target.closest('#decoy-trigger-container, #decoy-btn, .action-icon-btn, .modal-box, .upgrade-card, .tactical-btn')) {
+      continue;
+    }
+
+    if (!dynamicStick.active) {
+      dynamicStick.identifier = t.identifier;
+      showDynamicJoystick(t.clientX, t.clientY);
+      break;
+    }
+  }
+}, { passive: false });
+
+window.addEventListener('touchmove', e => {
+  if (!dynamicStick.active) return;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (t.identifier === dynamicStick.identifier) {
+      updateDynamicJoystick(t.clientX, t.clientY);
+      e.preventDefault();
+      break;
+    }
+  }
+}, { passive: false });
+
+const handleTouchRelease = e => {
+  if (!dynamicStick.active) return;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    const t = e.changedTouches[i];
+    if (t.identifier === dynamicStick.identifier) {
+      hideDynamicJoystick();
+      break;
+    }
+  }
+};
+
+window.addEventListener('touchend', handleTouchRelease);
+window.addEventListener('touchcancel', handleTouchRelease);
+
+window.addEventListener('keydown', e => {
+  audio.init();
+  if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+  if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    triggerManualDecoy();
+  }
+});
+
+window.addEventListener('keyup', e => {
+  if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+});
+
+function togglePause() {
+  if (gameState === 'PLAYING') {
+    gameState = 'PAUSED';
+    hideDynamicJoystick();
+    document.getElementById('pause-modal').style.display = 'flex';
+  } else if (gameState === 'PAUSED') {
+    gameState = 'PLAYING';
+    document.getElementById('pause-modal').style.display = 'none';
+  }
+}
+
+const decoyBtn = document.getElementById('decoy-btn');
+
+function handleDecoyPress(e) {
+  if (e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  audio.init();
+  triggerManualDecoy();
+}
+
+// Attach touchstart, pointerdown, and click with stopPropagation to ensure zero-latency tap on mobile
+decoyBtn.addEventListener('touchstart', handleDecoyPress, { passive: false });
+decoyBtn.addEventListener('pointerdown', handleDecoyPress);
+decoyBtn.onclick = handleDecoyPress;
+
+// Top controls and modal action bindings
+document.getElementById('sound-btn').onclick = (e) => {
+  e.stopPropagation();
+  audio.init();
+  const enabled = audio.toggle();
+  document.getElementById('sound-btn').innerText = enabled ? '🔊' : '🔇';
+};
+document.getElementById('pause-btn').onclick = (e) => {
+  e.stopPropagation();
+  audio.init();
+  togglePause();
+};
+document.getElementById('resume-btn').onclick = (e) => {
+  e.stopPropagation();
+  togglePause();
+};
+document.getElementById('restart-btn').onclick = (e) => {
+  e.stopPropagation();
+  resetGame();
+};
+
+window.addEventListener('click', () => audio.init(), { once: true });
+
+window.onload = function () {
+  resetGame();
+  requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
